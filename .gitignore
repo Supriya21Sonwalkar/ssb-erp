@@ -1,0 +1,16 @@
+# Local environment and secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencies and generated output
+**/node_modules/
+**/vendor/
+**/dist/
+**/public/hot
+**/public/storage
+**/storage/*.key
+
+# OS files
+Thumbs.db
+.DS_Store

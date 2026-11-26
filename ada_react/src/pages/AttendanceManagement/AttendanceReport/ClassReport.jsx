@@ -1,0 +1,300 @@
+import { useState, useEffect } from "react";
+import { getClassAttendanceReport, exportAttendanceExcel } from "../../../services/attendanceReportApi";
+import academicYearApi from "../../../services/academicYearApi";
+import classApi from "../../../services/classApi";
+import sectionApi from "../../../services/sectionApi";
+
+export default function ClassReport() {
+    const [loading, setLoading] = useState(false);
+    const [academicYears, setAcademicYears] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const [sections, setSections] = useState([]);
+    const [reportData, setReportData] = useState(null);
+
+    const [filters, setFilters] = useState({
+        academic_year_id: "",
+        class_id: "",
+        section_id: "",
+        from_date: "",
+        to_date: "",
+    });
+
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
+
+    useEffect(() => {
+        if (filters.class_id) {
+            fetchSectionsByClass(filters.class_id);
+        } else {
+            setSections([]);
+        }
+    }, [filters.class_id]);
+
+    const fetchInitialData = async () => {
+        try {
+            setLoading(true);
+            const academicYearResponse = await academicYearApi.getAll();
+            const years = academicYearResponse.data?.data ?? academicYearResponse.data ?? [];
+            setAcademicYears(years);
+
+            // Auto-select current academic year
+            const currentYear = new Date().getFullYear();
+            const currentAcademicYear = years.find(year => {
+                const yearStr = year.academic_year;
+                return yearStr.includes(currentYear.toString());
+            });
+            if (currentAcademicYear) {
+                setFilters(prev => ({ ...prev, academic_year_id: currentAcademicYear.id }));
+            }
+
+            const classResponse = await classApi.getAll();
+            setClasses(classResponse.data?.data ?? classResponse.data ?? []);
+        } catch (error) {
+            console.error("Error fetching initial data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchSectionsByClass = async (classId) => {
+        try {
+            const response = await sectionApi.getByClass(classId);
+            setSections(response.data?.data ?? response.data ?? []);
+        } catch (error) {
+            console.error("Error fetching sections:", error);
+            setSections([]);
+        }
+    };
+
+    const handleGenerateReport = async (e) => {
+        e.preventDefault();
+        try {
+            setLoading(true);
+            const response = await getClassAttendanceReport(filters);
+            setReportData(response.data);
+        } catch (error) {
+            console.error(error);
+            alert("Failed to generate report.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExportExcel = async () => {
+        try {
+            setLoading(true);
+            const response = await exportAttendanceExcel({
+                report_type: "class",
+                ...filters,
+            });
+            
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "Class_Attendance_Report.xlsx");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error(error);
+            alert("Failed to export report.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <h1 className="text-2xl font-bold text-[#610e1e]">Class Attendance Report</h1>
+                <p className="text-gray-500 mt-2">View class-wise attendance for a date range</p>
+            </div>
+
+            {/* Filters */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+                <form onSubmit={handleGenerateReport}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">Academic Year</label>
+                            <select
+                                value={filters.academic_year_id}
+                                onChange={(e) => setFilters({ ...filters, academic_year_id: e.target.value })}
+                                className="w-full border rounded-lg p-2"
+                                required
+                            >
+                                <option value="">Select</option>
+                                {academicYears.map((year) => (
+                                    <option key={year.id} value={year.id}>
+                                        {year.academic_year}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">Class</label>
+                            <select
+                                value={filters.class_id}
+                                onChange={(e) => setFilters({ ...filters, class_id: e.target.value })}
+                                className="w-full border rounded-lg p-2"
+                                required
+                            >
+                                <option value="">Select</option>
+                                {classes.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                        {item.class_name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">Section</label>
+                            <select
+                                value={filters.section_id}
+                                onChange={(e) => setFilters({ ...filters, section_id: e.target.value })}
+                                className="w-full border rounded-lg p-2"
+                                required
+                            >
+                                <option value="">Select</option>
+                                {sections.map((section) => (
+                                    <option key={section.id} value={section.id}>
+                                        {section.section_name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">From Date</label>
+                            <input
+                                type="date"
+                                value={filters.from_date}
+                                onChange={(e) => setFilters({ ...filters, from_date: e.target.value })}
+                                className="w-full border rounded-lg p-2"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">To Date</label>
+                            <input
+                                type="date"
+                                value={filters.to_date}
+                                onChange={(e) => setFilters({ ...filters, to_date: e.target.value })}
+                                className="w-full border rounded-lg p-2"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="bg-[#610e1e] hover:bg-[#4b0b18] text-white px-6 py-2 rounded-lg disabled:opacity-50"
+                        >
+                            {loading ? "Generating..." : "Generate Report"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setReportData(null);
+                                setFilters({
+                                    ...filters,
+                                    academic_year_id: "",
+                                    class_id: "",
+                                    section_id: "",
+                                    from_date: "",
+                                    to_date: "",
+                                });
+                            }}
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* Report Results */}
+            {reportData && (
+                <>
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                            <p className="text-gray-500 text-sm">Total Students</p>
+                            <p className="text-2xl font-bold text-[#610e1e]">{reportData.summary.total_students}</p>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                            <p className="text-gray-500 text-sm">Total Present</p>
+                            <p className="text-2xl font-bold text-green-600">{reportData.summary.total_present}</p>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                            <p className="text-gray-500 text-sm">Total Absent</p>
+                            <p className="text-2xl font-bold text-red-600">{reportData.summary.total_absent}</p>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                            <p className="text-gray-500 text-sm">Total Late</p>
+                            <p className="text-2xl font-bold text-yellow-600">{reportData.summary.total_late}</p>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                            <p className="text-gray-500 text-sm">Total Half-Day</p>
+                            <p className="text-2xl font-bold text-orange-600">{reportData.summary.total_half_day}</p>
+                        </div>
+                    </div>
+
+                    {/* Export Button */}
+                    <div className="flex justify-end">
+                        <button
+                            onClick={handleExportExcel}
+                            disabled={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg disabled:opacity-50 flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Export to Excel
+                        </button>
+                    </div>
+
+                    {/* Students Table */}
+                    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full">
+                                <thead className="bg-[#610e1e] text-white">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left">Roll No</th>
+                                        <th className="px-4 py-3 text-left">Admission No</th>
+                                        <th className="px-4 py-3 text-left">Student Name</th>
+                                        <th className="px-4 py-3 text-left">Present</th>
+                                        <th className="px-4 py-3 text-left">Absent</th>
+                                        <th className="px-4 py-3 text-left">Late</th>
+                                        <th className="px-4 py-3 text-left">Half-Day</th>
+                                        <th className="px-4 py-3 text-left">Attendance %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reportData.students.map((student) => (
+                                        <tr key={student.student_id} className="border-b hover:bg-gray-50">
+                                            <td className="px-4 py-3">{student.roll_no}</td>
+                                            <td className="px-4 py-3">{student.admission_no}</td>
+                                            <td className="px-4 py-3">{student.student_name}</td>
+                                            <td className="px-4 py-3 text-green-600 font-semibold">{student.present}</td>
+                                            <td className="px-4 py-3 text-red-600 font-semibold">{student.absent}</td>
+                                            <td className="px-4 py-3 text-yellow-600 font-semibold">{student.late}</td>
+                                            <td className="px-4 py-3 text-orange-600 font-semibold">{student.half_day}</td>
+                                            <td className="px-4 py-3 text-blue-600 font-semibold">{student.attendance_percentage}%</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}

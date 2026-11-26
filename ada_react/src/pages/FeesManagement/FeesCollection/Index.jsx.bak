@@ -1,0 +1,2718 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import {
+    FaSearch,
+    FaUserGraduate,
+    FaCalendarAlt,
+    FaMoneyBillWave,
+    FaReceipt,
+    FaHistory,
+    FaPlus,
+    FaTimes,
+    FaSpinner,
+} from "react-icons/fa";
+
+import feePaymentApi from "../../../services/feePaymentApi";
+
+import academicYearApi from "../../../services/academicYearApi";
+import classApi from "../../../services/classApi";
+import sectionApi from "../../../services/sectionApi";
+
+
+export default function FeesCollectionIndex() {
+
+    /*
+    |--------------------------------------------------------------------------
+    | State
+    |--------------------------------------------------------------------------
+    */
+
+    const [academicYears, setAcademicYears] = useState([]);
+
+    const [classes, setClasses] = useState([]);
+
+    const [sections, setSections] = useState([]);
+
+    const [academicYearId, setAcademicYearId] = useState("");
+
+    const [search, setSearch] = useState("");
+
+    const [students, setStudents] = useState([]);
+
+    const [selectedStudent, setSelectedStudent] = useState(null);
+
+    const [studentDetails, setStudentDetails] = useState(null);
+
+    const [loadingStudents, setLoadingStudents] =
+        useState(false);
+
+    const [loadingDetails, setLoadingDetails] =
+        useState(false);
+
+    const [showSuggestions, setShowSuggestions] =
+        useState(false);
+
+    const [showPaymentForm, setShowPaymentForm] =
+        useState(false);
+
+    const [submitting, setSubmitting] =
+        useState(false);
+
+    const searchRef = useRef(null);
+    
+    const navigate = useNavigate();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payment Form
+    |--------------------------------------------------------------------------
+    */
+
+    const [paymentForm, setPaymentForm] = useState({
+
+        payment_date:
+            new Date()
+                .toISOString()
+                .split("T")[0],
+
+        amount: "",
+
+        payment_mode: "Cash",
+
+        transaction_reference: "",
+
+        cheque_no: "",
+
+        bank_name: "",
+
+        remarks: "",
+
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load Academic Years & Classes
+    |--------------------------------------------------------------------------
+    */
+
+    useEffect(() => {
+
+        loadAcademicYears();
+
+        loadClasses();
+
+    }, []);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load Academic Years
+    |--------------------------------------------------------------------------
+    */
+
+    const loadAcademicYears = async () => {
+
+        try {
+
+            const response =
+                await academicYearApi.getAll();
+
+            console.log(
+                "Academic Years Response:",
+                response
+            );
+
+            const data =
+                response?.data?.data ??
+                response?.data ??
+                [];
+
+            setAcademicYears(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Academic Years Error:",
+                error
+            );
+
+            console.error(
+                "Backend:",
+                error?.response?.data
+            );
+
+            setAcademicYears([]);
+
+        }
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load Classes
+    |--------------------------------------------------------------------------
+    */
+
+    const loadClasses = async () => {
+
+        try {
+
+            const response =
+                await classApi.getAll();
+
+            console.log(
+                "Classes Response:",
+                response
+            );
+
+            const data =
+                response?.data?.data ??
+                response?.data ??
+                [];
+
+            setClasses(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Classes Error:",
+                error
+            );
+
+            console.error(
+                "Backend:",
+                error?.response?.data
+            );
+
+            setClasses([]);
+
+        }
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load Sections By Class
+    |--------------------------------------------------------------------------
+    */
+
+    const loadSections = async (classId) => {
+
+        if (!classId) {
+
+            setSections([]);
+
+            return;
+
+        }
+
+        try {
+
+            const response =
+                await sectionApi.getByClass(
+                    classId
+                );
+
+            console.log(
+                "Sections Response:",
+                response
+            );
+
+            const data =
+                response?.data?.data ??
+                response?.data ??
+                [];
+
+            setSections(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Sections Error:",
+                error
+            );
+
+            console.error(
+                "Backend:",
+                error?.response?.data
+            );
+
+            setSections([]);
+
+        }
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Student Search
+    |--------------------------------------------------------------------------
+    */
+
+    useEffect(() => {
+
+        const searchText =
+            search.trim();
+
+
+        if (!searchText) {
+
+            setStudents([]);
+
+            setShowSuggestions(false);
+
+            return;
+
+        }
+
+
+        const timer =
+            setTimeout(() => {
+
+                searchStudents(
+                    searchText
+                );
+
+            }, 350);
+
+
+        return () => {
+
+            clearTimeout(timer);
+
+        };
+
+    }, [
+        search,
+        academicYearId,
+    ]);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Search Students
+    |--------------------------------------------------------------------------
+    */
+
+    const searchStudents = async (
+        searchText
+    ) => {
+
+        try {
+
+            setLoadingStudents(true);
+
+            const params = {
+
+                search: searchText,
+
+            };
+
+
+            if (academicYearId) {
+
+                params.academic_year_id =
+                    academicYearId;
+
+            }
+
+
+            const response =
+                await feePaymentApi.searchStudents(
+                    params
+                );
+
+            console.log(
+                "Student Search Response:",
+                response
+            );
+
+
+            const data =
+                response?.data?.data ??
+                response?.data ??
+                [];
+
+
+            setStudents(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
+
+            setShowSuggestions(true);
+
+        }
+        catch (error) {
+
+            console.error(
+                "Student Search Error:",
+                error
+            );
+
+            console.error(
+                "Backend:",
+                error?.response?.data
+            );
+
+            setStudents([]);
+
+            setShowSuggestions(true);
+
+        }
+        finally {
+
+            setLoadingStudents(false);
+
+        }
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Select Student
+    |--------------------------------------------------------------------------
+    */
+
+    const handleSelectStudent = async (
+        student
+    ) => {
+
+        try {
+
+            setSelectedStudent(
+                student
+            );
+
+            setSearch(
+                student.full_name ||
+                `${student.first_name || ""} ${student.last_name || ""}`.trim()
+            );
+
+            setShowSuggestions(false);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Load Sections For Student Class
+            |--------------------------------------------------------------------------
+            */
+
+            if (student.class_id) {
+
+                await loadSections(
+                    student.class_id
+                );
+
+            }
+            else {
+
+                setSections([]);
+
+            }
+
+
+            setLoadingDetails(true);
+
+
+            const response =
+                await feePaymentApi.getStudentDetails(
+                    student.id
+                );
+
+            console.log(
+                "Student Details Response:",
+                response
+            );
+
+
+            const data =
+                response?.data?.data ??
+                response?.data ??
+                null;
+
+
+            setStudentDetails(
+                data
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | If class ID wasn't available in search result,
+            | load sections using detailed student data.
+            |--------------------------------------------------------------------------
+            */
+
+            const detailedClassId =
+                data?.student?.class_id;
+
+
+            if (
+                detailedClassId &&
+                detailedClassId !==
+                    student.class_id
+            ) {
+
+                await loadSections(
+                    detailedClassId
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Student Details Error:",
+                error
+            );
+
+            console.error(
+                "Backend:",
+                error?.response?.data
+            );
+
+            setStudentDetails(null);
+
+        }
+        finally {
+
+            setLoadingDetails(false);
+
+        }
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Clear Student
+    |--------------------------------------------------------------------------
+    */
+
+    const clearStudent = () => {
+
+        setSelectedStudent(null);
+
+        setStudentDetails(null);
+
+        setSearch("");
+
+        setStudents([]);
+
+        setSections([]);
+
+        setShowSuggestions(false);
+
+        setShowPaymentForm(false);
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payment Input
+    |--------------------------------------------------------------------------
+    */
+
+    const handlePaymentChange = (
+        e
+    ) => {
+
+        const {
+            name,
+            value,
+        } = e.target;
+
+
+        setPaymentForm(
+            previous => ({
+
+                ...previous,
+
+                [name]: value,
+
+            })
+        );
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Open Payment Form
+    |--------------------------------------------------------------------------
+    */
+
+    const openPaymentForm = () => {
+
+        if (!studentDetails) {
+
+            return;
+
+        }
+
+
+        const due =
+            Number(
+                studentDetails
+                    ?.summary
+                    ?.due_amount ?? 0
+            );
+
+
+        setPaymentForm({
+
+            payment_date:
+                new Date()
+                    .toISOString()
+                    .split("T")[0],
+
+            amount:
+                due > 0
+                    ? due.toString()
+                    : "",
+
+            payment_mode: "Cash",
+
+            transaction_reference: "",
+
+            cheque_no: "",
+
+            bank_name: "",
+
+            remarks: "",
+
+        });
+
+
+        setShowPaymentForm(true);
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Collect Payment
+    |--------------------------------------------------------------------------
+    */
+
+    const handleSubmitPayment = async (
+        e
+    ) => {
+
+        e.preventDefault();
+
+
+        if (!selectedStudent) {
+
+            alert(
+                "Please select a student."
+            );
+
+            return;
+
+        }
+
+
+        if (!studentDetails) {
+
+            return;
+
+        }
+
+
+        const feeStructureId =
+            studentDetails
+                ?.fee_structure
+                ?.id;
+
+
+        if (!feeStructureId) {
+
+            alert(
+                "Fee structure is not available for this student."
+            );
+
+            return;
+
+        }
+
+
+        const amount =
+            Number(
+                paymentForm.amount
+            );
+
+
+        const dueAmount =
+            Number(
+                studentDetails
+                    ?.summary
+                    ?.due_amount ?? 0
+            );
+
+
+        if (
+            !amount ||
+            amount <= 0
+        ) {
+
+            alert(
+                "Please enter a valid payment amount."
+            );
+
+            return;
+
+        }
+
+
+        if (
+            amount > dueAmount
+        ) {
+
+            alert(
+                `Payment amount cannot be greater than the due amount of ₹${formatAmount(dueAmount)}.`
+            );
+
+            return;
+
+        }
+
+
+        try {
+
+            setSubmitting(true);
+
+
+            const response =
+                await feePaymentApi.collectPayment({
+
+                    student_id:
+                        selectedStudent.id,
+
+                    fee_structure_id:
+                        feeStructureId,
+
+                    payment_date:
+                        paymentForm.payment_date,
+
+                    amount:
+                        amount,
+
+                    payment_mode:
+                        paymentForm.payment_mode,
+
+                    transaction_reference:
+                        paymentForm.transaction_reference ||
+                        null,
+
+                    cheque_no:
+                        paymentForm.cheque_no ||
+                        null,
+
+                    bank_name:
+                        paymentForm.bank_name ||
+                        null,
+
+                    remarks:
+                        paymentForm.remarks ||
+                        null,
+
+                });
+
+
+            console.log(
+                "Payment Response:",
+                response
+            );
+
+
+            alert(
+                response?.data?.message ||
+                "Fee payment collected successfully."
+            );
+
+
+            setShowPaymentForm(false);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Reload Student Fee Details
+            |--------------------------------------------------------------------------
+            */
+
+            const updatedResponse =
+                await feePaymentApi.getStudentDetails(
+                    selectedStudent.id
+                );
+
+
+            const updatedData =
+                updatedResponse?.data?.data ??
+                updatedResponse?.data ??
+                null;
+
+
+            setStudentDetails(
+                updatedData
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Reload Sections
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                updatedData
+                    ?.student
+                    ?.class_id
+            ) {
+
+                await loadSections(
+                    updatedData
+                        .student
+                        .class_id
+                );
+
+            }
+
+
+            setPaymentForm({
+
+                payment_date:
+                    new Date()
+                        .toISOString()
+                        .split("T")[0],
+
+                amount: "",
+
+                payment_mode: "Cash",
+
+                transaction_reference: "",
+
+                cheque_no: "",
+
+                bank_name: "",
+
+                remarks: "",
+
+            });
+
+        }
+        catch (error) {
+
+            console.error(
+                "Fee Payment Error:",
+                error
+            );
+
+            console.error(
+                "Backend Error:",
+                error?.response?.data
+            );
+
+
+            alert(
+                error?.response?.data?.message ||
+                "Unable to collect fee payment."
+            );
+
+        }
+        finally {
+
+            setSubmitting(false);
+
+        }
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Format Amount
+    |--------------------------------------------------------------------------
+    */
+
+    const formatAmount = (
+        amount
+    ) => {
+
+        return Number(
+            amount || 0
+        ).toLocaleString(
+            "en-IN",
+            {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }
+        );
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Student Name
+    |--------------------------------------------------------------------------
+    */
+
+    const getStudentName = (
+        student
+    ) => {
+
+        if (!student) {
+
+            return "";
+
+        }
+
+
+        return (
+            student.full_name ||
+            [
+                student.first_name,
+                student.middle_name,
+                student.last_name,
+            ]
+                .filter(Boolean)
+                .join(" ")
+        );
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Photo URL
+    |--------------------------------------------------------------------------
+    */
+
+    const getPhotoUrl = (
+        photo
+    ) => {
+
+        if (!photo) {
+
+            return null;
+
+        }
+
+
+        if (
+            photo.startsWith("http://") ||
+            photo.startsWith("https://")
+        ) {
+
+            return photo;
+
+        }
+
+
+        return `/storage/${photo}`;
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Academic Year Name
+    |--------------------------------------------------------------------------
+    */
+
+    const getAcademicYearName = (
+        id
+    ) => {
+
+        const year =
+            academicYears.find(
+                item =>
+                    Number(item.id) ===
+                    Number(id)
+            );
+
+
+        if (!year) {
+
+            return "-";
+
+        }
+
+
+        return (
+            year.name ||
+            year.title ||
+            year.academic_year ||
+            year.year ||
+            "-"
+        );
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Class Name
+    |--------------------------------------------------------------------------
+    */
+
+    const getClassName = (
+        id
+    ) => {
+
+        const classItem =
+            classes.find(
+                item =>
+                    Number(item.id) ===
+                    Number(id)
+            );
+
+
+        if (!classItem) {
+
+            return "-";
+
+        }
+
+
+        return (
+            classItem.name ||
+            classItem.class_name ||
+            classItem.title ||
+            "-"
+        );
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Section Name
+    |--------------------------------------------------------------------------
+    */
+
+    const getSectionName = (
+        id
+    ) => {
+
+        const section =
+            sections.find(
+                item =>
+                    Number(item.id) ===
+                    Number(id)
+            );
+
+
+        if (!section) {
+
+            return "-";
+
+        }
+
+
+        return (
+            section.name ||
+            section.section_name ||
+            section.title ||
+            "-"
+        );
+
+    };
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Click Outside Search
+    |--------------------------------------------------------------------------
+    */
+
+    useEffect(() => {
+
+        const handleClickOutside =
+            (event) => {
+
+                if (
+                    searchRef.current &&
+                    !searchRef.current.contains(
+                        event.target
+                    )
+                ) {
+
+                    setShowSuggestions(false);
+
+                }
+
+            };
+
+
+        document.addEventListener(
+            "mousedown",
+            handleClickOutside
+        );
+
+
+        return () => {
+
+            document.removeEventListener(
+                "mousedown",
+                handleClickOutside
+            );
+
+        };
+
+    }, []);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Render
+    |--------------------------------------------------------------------------
+    */
+
+    return (
+
+        <div className="min-h-screen bg-gray-50 p-6">
+
+            {/* Header */}
+
+            <div className="mb-6">
+
+                <h1 className="text-2xl font-bold text-[#610e1e]">
+                    Fees Collection
+                </h1>
+
+                <p className="mt-1 text-sm text-gray-500">
+                    Search students and manage their fee payments
+                </p>
+
+            </div>
+
+
+            {/* Search Card */}
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+
+                    {/* Academic Year */}
+
+                    <div>
+
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                            Academic Year
+
+                        </label>
+
+                        <div className="relative">
+
+                            <FaCalendarAlt
+                                className="
+                                    absolute
+                                    left-3
+                                    top-1/2
+                                    -translate-y-1/2
+                                    text-[#610e1e]
+                                "
+                            />
+
+
+                            <select
+                                value={academicYearId}
+                                onChange={(e) => {
+
+                                    setAcademicYearId(
+                                        e.target.value
+                                    );
+
+                                    if (
+                                        selectedStudent
+                                    ) {
+
+                                        clearStudent();
+
+                                    }
+
+                                }}
+                                className="
+                                    w-full
+                                    border
+                                    border-gray-300
+                                    rounded-xl
+                                    pl-10
+                                    pr-4
+                                    py-3
+                                    outline-none
+                                    focus:ring-2
+                                    focus:ring-[#610e1e]/20
+                                    focus:border-[#610e1e]
+                                "
+                            >
+
+                                <option value="">
+                                    All Academic Years
+                                </option>
+
+
+                                {academicYears.map(
+                                    (year) => (
+
+                                        <option
+                                            key={year.id}
+                                            value={year.id}
+                                        >
+
+                                            {
+                                                year.name ||
+                                                year.title ||
+                                                year.academic_year ||
+                                                year.year
+                                            }
+
+                                        </option>
+
+                                    )
+                                )}
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+                    {/* Student Search */}
+
+                    <div
+                        ref={searchRef}
+                        className="md:col-span-2 relative"
+                    >
+
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                            Search Student
+
+                        </label>
+
+
+                        <div className="relative">
+
+                            <FaSearch
+                                className="
+                                    absolute
+                                    left-3
+                                    top-1/2
+                                    -translate-y-1/2
+                                    text-gray-400
+                                "
+                            />
+
+
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => {
+
+                                    setSearch(
+                                        e.target.value
+                                    );
+
+
+                                    if (
+                                        selectedStudent
+                                    ) {
+
+                                        setSelectedStudent(
+                                            null
+                                        );
+
+                                        setStudentDetails(
+                                            null
+                                        );
+
+                                        setShowPaymentForm(
+                                            false
+                                        );
+
+                                    }
+
+                                }}
+                                onFocus={() => {
+
+                                    if (
+                                        students.length
+                                    ) {
+
+                                        setShowSuggestions(
+                                            true
+                                        );
+
+                                    }
+
+                                }}
+                                placeholder="Search by student name or admission number..."
+                                className="
+                                    w-full
+                                    border
+                                    border-gray-300
+                                    rounded-xl
+                                    pl-10
+                                    pr-10
+                                    py-3
+                                    outline-none
+                                    focus:ring-2
+                                    focus:ring-[#610e1e]/20
+                                    focus:border-[#610e1e]
+                                "
+                            />
+
+
+                            {search && (
+
+                                <button
+                                    type="button"
+                                    onClick={
+                                        clearStudent
+                                    }
+                                    className="
+                                        absolute
+                                        right-3
+                                        top-1/2
+                                        -translate-y-1/2
+                                        text-gray-400
+                                        hover:text-[#610e1e]
+                                    "
+                                >
+
+                                    <FaTimes />
+
+                                </button>
+
+                            )}
+
+                        </div>
+
+
+                        {/* Search Suggestions */}
+
+                        {showSuggestions && (
+
+                            <div
+                                className="
+                                    absolute
+                                    z-50
+                                    left-0
+                                    right-0
+                                    mt-2
+                                    bg-white
+                                    border
+                                    border-gray-200
+                                    rounded-xl
+                                    shadow-xl
+                                    overflow-hidden
+                                "
+                            >
+
+                                {loadingStudents ? (
+
+                                    <div className="p-5 text-center text-gray-500">
+
+                                        <FaSpinner className="animate-spin inline mr-2" />
+
+                                        Searching students...
+
+                                    </div>
+
+                                ) : students.length > 0 ? (
+
+                                    students.map(
+                                        (student) => (
+
+                                            <button
+                                                type="button"
+                                                key={student.id}
+                                                onClick={() =>
+                                                    handleSelectStudent(
+                                                        student
+                                                    )
+                                                }
+                                                className="
+                                                    w-full
+                                                    text-left
+                                                    px-4
+                                                    py-3
+                                                    hover:bg-[#610e1e]/5
+                                                    border-b
+                                                    border-gray-100
+                                                    last:border-b-0
+                                                    transition
+                                                "
+                                            >
+
+                                                <div className="flex items-center gap-3">
+
+
+                                                    {getPhotoUrl(
+                                                        student.photo
+                                                    ) ? (
+
+                                                        <img
+                                                            src={getPhotoUrl(
+                                                                student.photo
+                                                            )}
+                                                            alt={getStudentName(
+                                                                student
+                                                            )}
+                                                            className="
+                                                                w-10
+                                                                h-10
+                                                                rounded-full
+                                                                object-cover
+                                                                border
+                                                                border-gray-200
+                                                            "
+                                                        />
+
+                                                    ) : (
+
+                                                        <div
+                                                            className="
+                                                                w-10
+                                                                h-10
+                                                                rounded-full
+                                                                bg-[#610e1e]/10
+                                                                flex
+                                                                items-center
+                                                                justify-center
+                                                            "
+                                                        >
+
+                                                            <FaUserGraduate
+                                                                className="text-[#610e1e]"
+                                                            />
+
+                                                        </div>
+
+                                                    )}
+
+
+                                                    <div>
+
+                                                        <p className="font-semibold text-gray-800">
+
+                                                            {
+                                                                getStudentName(
+                                                                    student
+                                                                )
+                                                            }
+
+                                                        </p>
+
+
+                                                        <p className="text-xs text-gray-500">
+
+                                                            Admission No:
+                                                            {" "}
+                                                            {
+                                                                student.admission_no
+                                                            }
+
+                                                        </p>
+
+
+                                                        {student.student_code && (
+
+                                                            <p className="text-xs text-gray-400">
+
+                                                                Student Code:
+                                                                {" "}
+                                                                {
+                                                                    student.student_code
+                                                                }
+
+                                                            </p>
+
+                                                        )}
+
+                                                    </div>
+
+                                                </div>
+
+                                            </button>
+
+                                        )
+                                    )
+
+                                ) : (
+
+                                    <div className="p-5 text-center text-gray-500">
+
+                                        No students found.
+
+                                    </div>
+
+                                )}
+
+                            </div>
+
+                        )}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            {/* Loading Details */}
+
+            {loadingDetails && (
+
+                <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center">
+
+                    <FaSpinner
+                        className="
+                            animate-spin
+                            text-2xl
+                            text-[#610e1e]
+                            mx-auto
+                            mb-3
+                        "
+                    />
+
+                    <p className="text-gray-500">
+                        Loading student fee details...
+                    </p>
+
+                </div>
+
+            )}
+
+
+            {/* Student Details */}
+
+            {!loadingDetails &&
+                studentDetails && (
+
+                    <>
+
+                        {/* Student Profile */}
+
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+
+                                <div className="flex items-center gap-4">
+
+
+                                    {getPhotoUrl(
+                                        studentDetails
+                                            ?.student
+                                            ?.photo
+                                    ) ? (
+
+                                        <img
+                                            src={getPhotoUrl(
+                                                studentDetails
+                                                    ?.student
+                                                    ?.photo
+                                            )}
+                                            alt={getStudentName(
+                                                studentDetails.student
+                                            )}
+                                            className="
+                                                w-20
+                                                h-20
+                                                rounded-2xl
+                                                object-cover
+                                                border
+                                                border-gray-200
+                                            "
+                                        />
+
+                                    ) : (
+
+                                        <div
+                                            className="
+                                                w-20
+                                                h-20
+                                                rounded-2xl
+                                                bg-[#610e1e]/10
+                                                flex
+                                                items-center
+                                                justify-center
+                                            "
+                                        >
+
+                                            <FaUserGraduate
+                                                className="
+                                                    text-[#610e1e]
+                                                    text-3xl
+                                                "
+                                            />
+
+                                        </div>
+
+                                    )}
+
+
+                                    <div>
+
+                                        <h2 className="text-xl font-bold text-[#610e1e]">
+
+                                            {
+                                                getStudentName(
+                                                    studentDetails.student
+                                                )
+                                            }
+
+                                        </h2>
+
+
+                                        <p className="text-sm text-gray-500 mt-1">
+
+                                            Admission No:
+                                            {" "}
+                                            {
+                                                studentDetails
+                                                    ?.student
+                                                    ?.admission_no
+                                            }
+
+                                        </p>
+
+
+                                        <p className="text-sm text-gray-500">
+
+                                            Student Code:
+                                            {" "}
+                                            {
+                                                studentDetails
+                                                    ?.student
+                                                    ?.student_code ||
+                                                "-"
+                                            }
+
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+
+                                <button
+                                    type="button"
+                                    onClick={
+                                        openPaymentForm
+                                    }
+                                    disabled={
+                                        !studentDetails
+                                            ?.fee_structure
+                                            ?.id ||
+                                        Number(
+                                            studentDetails
+                                                ?.summary
+                                                ?.due_amount ?? 0
+                                        ) <= 0
+                                    }
+                                    className="
+                                        inline-flex
+                                        items-center
+                                        justify-center
+                                        gap-2
+                                        px-5
+                                        py-3
+                                        rounded-xl
+                                        bg-[#610e1e]
+                                        text-white
+                                        font-semibold
+                                        hover:bg-[#4d0b18]
+                                        disabled:bg-gray-300
+                                        disabled:cursor-not-allowed
+                                        transition
+                                    "
+                                >
+
+                                    <FaPlus />
+
+                                    Collect Payment
+
+                                </button>
+
+                            </div>
+
+
+                            {/* Student Information */}
+
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6 pt-5 border-t border-gray-100">
+
+                                <InfoItem
+                                    label="Course"
+                                    value={
+                                        studentDetails
+                                            ?.fee_structure
+                                            ?.course
+                                            ?.title ||
+                                        "-"
+                                    }
+                                />
+
+
+                                <InfoItem
+                                    label="Academic Year"
+                                    value={
+                                        getAcademicYearName(
+                                            studentDetails
+                                                ?.student
+                                                ?.academic_year_id
+                                        )
+                                    }
+                                />
+
+
+                                <InfoItem
+                                    label="Class"
+                                    value={
+                                        getClassName(
+                                            studentDetails
+                                                ?.student
+                                                ?.class_id
+                                        )
+                                    }
+                                />
+
+
+                                <InfoItem
+                                    label="Section"
+                                    value={
+                                        getSectionName(
+                                            studentDetails
+                                                ?.student
+                                                ?.section_id
+                                        )
+                                    }
+                                />
+
+
+                                <InfoItem
+                                    label="Hostel"
+                                    value={
+                                        studentDetails
+                                            ?.student
+                                            ?.hostel_required
+                                            ? "Required"
+                                            : "Not Required"
+                                    }
+                                />
+
+                            </div>
+
+                        </div>
+
+
+                        {/* Fee Summary */}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+
+                            <SummaryCard
+                                title="Total Fee"
+                                value={
+                                    studentDetails
+                                        ?.summary
+                                        ?.total_fee
+                                }
+                                icon={
+                                    <FaMoneyBillWave />
+                                }
+                            />
+
+
+                            <SummaryCard
+                                title="Waiver"
+                                value={
+                                    studentDetails
+                                        ?.summary
+                                        ?.total_waiver
+                                }
+                                icon={
+                                    <FaMoneyBillWave />
+                                }
+                            />
+
+
+                            <SummaryCard
+                                title="Net Payable"
+                                value={
+                                    studentDetails
+                                        ?.summary
+                                        ?.net_payable
+                                }
+                                icon={
+                                    <FaReceipt />
+                                }
+                            />
+
+
+                            <SummaryCard
+                                title="Total Paid"
+                                value={
+                                    studentDetails
+                                        ?.summary
+                                        ?.total_paid
+                                }
+                                icon={
+                                    <FaMoneyBillWave />
+                                }
+                            />
+
+
+                            <SummaryCard
+                                title="Due Amount"
+                                value={
+                                    studentDetails
+                                        ?.summary
+                                        ?.due_amount
+                                }
+                                icon={
+                                    <FaReceipt />
+                                }
+                                highlight
+                            />
+
+                        </div>
+
+
+                        {/* Transactions */}
+
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+
+                            <div className="px-6 py-5 border-b border-gray-200 flex items-center gap-3">
+
+                                <FaHistory className="text-[#610e1e]" />
+
+                                <div>
+
+                                    <h2 className="font-bold text-lg text-[#610e1e]">
+                                        Payment History
+                                    </h2>
+
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        All transactions for this student
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            <div className="overflow-x-auto">
+
+                                <table className="w-full">
+
+                                    <thead className="bg-gray-50">
+
+                                        <tr>
+
+                                            <th className="text-left px-5 py-3 text-xs font-bold text-gray-600 uppercase">
+                                                Receipt
+                                            </th>
+
+                                            <th className="text-left px-5 py-3 text-xs font-bold text-gray-600 uppercase">
+                                                Date
+                                            </th>
+
+                                            <th className="text-left px-5 py-3 text-xs font-bold text-gray-600 uppercase">
+                                                Amount
+                                            </th>
+
+                                            <th className="text-left px-5 py-3 text-xs font-bold text-gray-600 uppercase">
+                                                Mode
+                                            </th>
+
+                                            <th className="text-left px-5 py-3 text-xs font-bold text-gray-600 uppercase">
+                                                Reference
+                                            </th>
+
+                                            <th className="text-left px-5 py-3 text-xs font-bold text-gray-600 uppercase">
+                                                Status
+                                            </th>
+
+                                        </tr>
+
+                                    </thead>
+
+
+                                    <tbody>
+
+                                        {
+                                            (
+                                                studentDetails
+                                                    ?.transactions ||
+                                                []
+                                            ).length > 0 ? (
+
+                                                studentDetails
+                                                    .transactions
+                                                    .map(
+                                                        (
+                                                            transaction
+                                                        ) => (
+
+                                                            <tr
+                                                                key={
+                                                                    transaction.id
+                                                                }
+                                                                className="border-t border-gray-100 hover:bg-gray-50"
+                                                            >
+
+                                                                <td className="px-5 py-4 font-semibold text-[#610e1e]">
+
+                                                                    {
+                                                                        transaction.receipt_no
+                                                                    }
+
+                                                                </td>
+
+
+                                                                <td className="px-5 py-4 text-sm text-gray-600">
+
+                                                                    {
+                                                                        transaction.payment_date
+                                                                    }
+
+                                                                </td>
+
+
+                                                                <td className="px-5 py-4 font-semibold text-gray-800">
+
+                                                                    ₹
+                                                                    {
+                                                                        formatAmount(
+                                                                            transaction.amount
+                                                                        )
+                                                                    }
+
+                                                                </td>
+
+
+                                                                <td className="px-5 py-4 text-sm text-gray-600">
+
+                                                                    {
+                                                                        transaction.payment_mode
+                                                                    }
+
+                                                                </td>
+
+
+                                                                <td className="px-5 py-4 text-sm text-gray-600">
+
+                                                                    {
+                                                                        transaction.transaction_reference ||
+                                                                        "-"
+                                                                    }
+
+                                                                </td>
+
+
+                                                                <td className="px-5 py-4">
+
+                                                                    <span
+                                                                        className={`
+                                                                            inline-flex
+                                                                            px-3
+                                                                            py-1
+                                                                            rounded-full
+                                                                            text-xs
+                                                                            font-semibold
+                                                                            ${
+                                                                                String(
+                                                                                    transaction.status
+                                                                                ).toLowerCase() ===
+                                                                                "success"
+                                                                                    ? "bg-green-100 text-green-700"
+                                                                                    : "bg-red-100 text-red-700"
+                                                                            }
+                                                                        `}
+                                                                    >
+
+                                                                        {
+                                                                            transaction.status
+                                                                        }
+
+                                                                    </span>
+
+                                                                </td>
+
+                                                            </tr>
+
+                                                        )
+                                                    )
+
+                                            ) : (
+
+                                                <tr>
+
+                                                    <td
+                                                        colSpan="6"
+                                                        className="px-5 py-12 text-center text-gray-500"
+                                                    >
+
+                                                        No fee transactions found for this student.
+
+                                                    </td>
+
+                                                </tr>
+
+                                            )
+                                        }
+
+                                    </tbody>
+
+                                </table>
+
+                            </div>
+
+                        </div>
+
+                    </>
+
+                )}
+
+
+            {/* Initial State */}
+
+            {!loadingDetails &&
+                !studentDetails && (
+
+                    <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-16 text-center">
+
+                        <FaUserGraduate
+                            className="
+                                text-5xl
+                                text-[#610e1e]/20
+                                mx-auto
+                                mb-4
+                            "
+                        />
+
+                        <h2 className="text-lg font-semibold text-gray-700">
+                            Select a Student
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mt-2">
+                            Search by student name or admission number to view fee details.
+                        </p>
+
+                    </div>
+
+                )}
+
+
+            {/* Payment Modal */}
+
+            {showPaymentForm && (
+
+                <div
+                    className="
+                        fixed
+                        inset-0
+                        z-[100]
+                        bg-black/50
+                        flex
+                        items-center
+                        justify-center
+                        p-4
+                    "
+                >
+
+                    <div
+                        className="
+                            bg-white
+                            w-full
+                            max-w-2xl
+                            max-h-[90vh]
+                            overflow-y-auto
+                            rounded-2xl
+                            shadow-2xl
+                        "
+                    >
+
+                        {/* Modal Header */}
+
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+
+                            <div>
+
+                                <h2 className="text-xl font-bold text-[#610e1e]">
+                                    Collect Fee Payment
+                                </h2>
+
+                                <p className="text-sm text-gray-500 mt-1">
+
+                                    {
+                                        getStudentName(
+                                            studentDetails?.student
+                                        )
+                                    }
+
+                                </p>
+
+                            </div>
+
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setShowPaymentForm(
+                                        false
+                                    )
+                                }
+                                className="
+                                    w-9
+                                    h-9
+                                    rounded-full
+                                    bg-gray-100
+                                    flex
+                                    items-center
+                                    justify-center
+                                    text-gray-500
+                                    hover:bg-gray-200
+                                "
+                            >
+
+                                <FaTimes />
+
+                            </button>
+
+                        </div>
+
+
+                        {/* Modal Form */}
+
+                        <form
+                            onSubmit={
+                                handleSubmitPayment
+                            }
+                            className="p-6"
+                        >
+
+                            {/* Current Due */}
+
+                            <div className="bg-[#610e1e]/5 rounded-xl p-4 mb-5">
+
+                                <div className="flex justify-between items-center">
+
+                                    <span className="text-sm text-gray-600">
+                                        Current Due
+                                    </span>
+
+                                    <span className="text-xl font-bold text-[#610e1e]">
+
+                                        ₹
+                                        {
+                                            formatAmount(
+                                                studentDetails
+                                                    ?.summary
+                                                    ?.due_amount
+                                            )
+                                        }
+
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+                                {/* Date */}
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                                        Payment Date
+
+                                        <span className="text-red-500">
+                                            {" "}*
+                                        </span>
+
+                                    </label>
+
+
+                                    <input
+                                        type="date"
+                                        name="payment_date"
+                                        value={
+                                            paymentForm.payment_date
+                                        }
+                                        onChange={
+                                            handlePaymentChange
+                                        }
+                                        required
+                                        className="
+                                            w-full
+                                            border
+                                            border-gray-300
+                                            rounded-xl
+                                            px-4
+                                            py-3
+                                            outline-none
+                                            focus:border-[#610e1e]
+                                            focus:ring-2
+                                            focus:ring-[#610e1e]/20
+                                        "
+                                    />
+
+                                </div>
+
+
+                                {/* Amount */}
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                                        Payment Amount
+
+                                        <span className="text-red-500">
+                                            {" "}*
+                                        </span>
+
+                                    </label>
+
+
+                                    <input
+                                        type="number"
+                                        name="amount"
+                                        value={
+                                            paymentForm.amount
+                                        }
+                                        onChange={
+                                            handlePaymentChange
+                                        }
+                                        min="0.01"
+                                        max={
+                                            studentDetails
+                                                ?.summary
+                                                ?.due_amount ||
+                                            undefined
+                                        }
+                                        step="0.01"
+                                        required
+                                        placeholder="Enter amount"
+                                        className="
+                                            w-full
+                                            border
+                                            border-gray-300
+                                            rounded-xl
+                                            px-4
+                                            py-3
+                                            outline-none
+                                            focus:border-[#610e1e]
+                                            focus:ring-2
+                                            focus:ring-[#610e1e]/20
+                                        "
+                                    />
+
+                                </div>
+
+
+                                {/* Payment Mode */}
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                                        Payment Mode
+
+                                        <span className="text-red-500">
+                                            {" "}*
+                                        </span>
+
+                                    </label>
+
+
+                                    <select
+                                        name="payment_mode"
+                                        value={
+                                            paymentForm.payment_mode
+                                        }
+                                        onChange={
+                                            handlePaymentChange
+                                        }
+                                        required
+                                        className="
+                                            w-full
+                                            border
+                                            border-gray-300
+                                            rounded-xl
+                                            px-4
+                                            py-3
+                                            outline-none
+                                            focus:border-[#610e1e]
+                                            focus:ring-2
+                                            focus:ring-[#610e1e]/20
+                                        "
+                                    >
+
+                                        <option value="Cash">
+                                            Cash
+                                        </option>
+
+                                        <option value="UPI">
+                                            UPI
+                                        </option>
+
+                                        <option value="Bank Transfer">
+                                            Bank Transfer
+                                        </option>
+
+                                        <option value="Cheque">
+                                            Cheque
+                                        </option>
+
+                                        <option value="Card">
+                                            Card
+                                        </option>
+
+                                        <option value="Online">
+                                            Online
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+
+                                {/* Transaction Reference */}
+
+                                <div>
+
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                                        Transaction Reference
+
+                                    </label>
+
+
+                                    <input
+                                        type="text"
+                                        name="transaction_reference"
+                                        value={
+                                            paymentForm.transaction_reference
+                                        }
+                                        onChange={
+                                            handlePaymentChange
+                                        }
+                                        placeholder="Transaction / UTR number"
+                                        className="
+                                            w-full
+                                            border
+                                            border-gray-300
+                                            rounded-xl
+                                            px-4
+                                            py-3
+                                            outline-none
+                                            focus:border-[#610e1e]
+                                            focus:ring-2
+                                            focus:ring-[#610e1e]/20
+                                        "
+                                    />
+
+                                </div>
+
+
+                                {/* Cheque Number */}
+
+                                {paymentForm.payment_mode ===
+                                    "Cheque" && (
+
+                                        <div>
+
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                                                Cheque Number
+
+                                            </label>
+
+
+                                            <input
+                                                type="text"
+                                                name="cheque_no"
+                                                value={
+                                                    paymentForm.cheque_no
+                                                }
+                                                onChange={
+                                                    handlePaymentChange
+                                                }
+                                                className="
+                                                    w-full
+                                                    border
+                                                    border-gray-300
+                                                    rounded-xl
+                                                    px-4
+                                                    py-3
+                                                    outline-none
+                                                    focus:border-[#610e1e]
+                                                    focus:ring-2
+                                                    focus:ring-[#610e1e]/20
+                                                "
+                                            />
+
+                                        </div>
+
+                                    )}
+
+
+                                {/* Bank Name */}
+
+                                {(
+                                    paymentForm.payment_mode ===
+                                        "Cheque" ||
+                                    paymentForm.payment_mode ===
+                                        "Bank Transfer"
+                                ) && (
+
+                                    <div>
+
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                                            Bank Name
+
+                                        </label>
+
+
+                                        <input
+                                            type="text"
+                                            name="bank_name"
+                                            value={
+                                                paymentForm.bank_name
+                                            }
+                                            onChange={
+                                                handlePaymentChange
+                                            }
+                                            className="
+                                                w-full
+                                                border
+                                                border-gray-300
+                                                rounded-xl
+                                                px-4
+                                                py-3
+                                                outline-none
+                                                focus:border-[#610e1e]
+                                                focus:ring-2
+                                                focus:ring-[#610e1e]/20
+                                            "
+                                        />
+
+                                    </div>
+
+                                )}
+
+
+                                {/* Remarks */}
+
+                                <div className="md:col-span-2">
+
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+
+                                        Remarks
+
+                                    </label>
+
+
+                                    <textarea
+                                        name="remarks"
+                                        value={
+                                            paymentForm.remarks
+                                        }
+                                        onChange={
+                                            handlePaymentChange
+                                        }
+                                        rows="3"
+                                        placeholder="Enter remarks if required..."
+                                        className="
+                                            w-full
+                                            border
+                                            border-gray-300
+                                            rounded-xl
+                                            px-4
+                                            py-3
+                                            outline-none
+                                            resize-none
+                                            focus:border-[#610e1e]
+                                            focus:ring-2
+                                            focus:ring-[#610e1e]/20
+                                        "
+                                    />
+
+                                </div>
+
+                            </div>
+
+
+                            {/* Buttons */}
+
+                            <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-200">
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPaymentForm(
+                                            false
+                                        )
+                                    }
+                                    disabled={
+                                        submitting
+                                    }
+                                    className="
+                                        px-5
+                                        py-3
+                                        rounded-xl
+                                        border
+                                        border-gray-300
+                                        text-gray-700
+                                        font-semibold
+                                        hover:bg-gray-50
+                                        disabled:opacity-50
+                                    "
+                                >
+
+                                    Cancel
+
+                                </button>
+
+
+                                <button
+                                    type="submit"
+                                    disabled={
+                                        submitting
+                                    }
+                                    className="
+                                        px-5
+                                        py-3
+                                        rounded-xl
+                                        bg-[#610e1e]
+                                        text-white
+                                        font-semibold
+                                        flex
+                                        items-center
+                                        gap-2
+                                        hover:bg-[#4d0b18]
+                                        disabled:opacity-50
+                                    "
+                                >
+
+                                    {submitting ? (
+
+                                        <>
+
+                                            <FaSpinner className="animate-spin" />
+
+                                            Saving...
+
+                                        </>
+
+                                    ) : (
+
+                                        <>
+
+                                            <FaMoneyBillWave />
+
+                                            Collect Payment
+
+                                        </>
+
+                                    )}
+
+                                </button>
+
+                            </div>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            )}
+
+        </div>
+
+    );
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Info Item
+|--------------------------------------------------------------------------
+*/
+
+function InfoItem({
+    label,
+    value,
+}) {
+
+    return (
+
+        <div>
+
+            <p className="text-xs text-gray-500 mb-1">
+                {label}
+            </p>
+
+            <p className="text-sm font-semibold text-gray-800 truncate">
+                {value || "-"}
+            </p>
+
+        </div>
+
+    );
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Summary Card
+|--------------------------------------------------------------------------
+*/
+
+function SummaryCard({
+    title,
+    value,
+    icon,
+    highlight = false,
+}) {
+
+    return (
+
+        <div
+            className={`
+                rounded-2xl
+                border
+                p-5
+                ${
+                    highlight
+                        ? "bg-[#610e1e] border-[#610e1e] text-white"
+                        : "bg-white border-gray-200"
+                }
+            `}
+        >
+
+            <div className="flex items-center justify-between">
+
+                <div>
+
+                    <p
+                        className={
+                            highlight
+                                ? "text-xs text-white/70"
+                                : "text-xs text-gray-500"
+                        }
+                    >
+                        {title}
+                    </p>
+
+
+                    <p
+                        className={`
+                            text-xl
+                            font-bold
+                            mt-1
+                            ${
+                                highlight
+                                    ? "text-white"
+                                    : "text-[#610e1e]"
+                            }
+                        `}
+                    >
+
+                        ₹
+                        {formatCurrency(value)}
+
+                    </p>
+
+                </div>
+
+
+                <div
+                    className={`
+                        w-10
+                        h-10
+                        rounded-xl
+                        flex
+                        items-center
+                        justify-center
+                        ${
+                            highlight
+                                ? "bg-white/10 text-[#FFD963]"
+                                : "bg-[#610e1e]/10 text-[#610e1e]"
+                        }
+                    `}
+                >
+
+                    {icon}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    );
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Format Currency
+|--------------------------------------------------------------------------
+*/
+
+function formatCurrency(value) {
+
+    return Number(
+        value || 0
+    ).toLocaleString(
+        "en-IN",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }
+    );
+
+}
